@@ -1,0 +1,19 @@
+# ① DATA FOUNDATIONS — transform layer (dbt). Swap warehouse freely (ClickHouse/Snowflake/BigQuery).
+# Layered models: staging (1:1 source cleanup) → marts (canonical, certified, consumption-ready).
+name: "selfserve_analytics"
+version: "0.1.0"
+profile: "selfserve_analytics"          # configure in ~/.dbt/profiles.yml (warehouse creds)
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  selfserve_analytics:
+    staging:
+      +materialized: view
+      +tags: ["staging"]
+    marts:
+      +materialized: table             # canonical, consumption-ready
+      +tags: ["certified"]
+      +meta: { tier: gold }
+
+# Physical rollups/caches should derive MECHANICALLY from these marts — never live alongside as alternatives.

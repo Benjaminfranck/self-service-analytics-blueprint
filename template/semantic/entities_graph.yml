@@ -1,0 +1,51 @@
+# ⑥ ENTITY / RELATIONSHIP GRAPH — models the BUSINESS DOMAIN, not storage.
+# Three jobs for NL queries:
+#   1) entity resolution  — map a noun in the question → an entity
+#   2) join-path selection — emit joins from edge definitions so the LLM NEVER hallucinates a join
+#   3) disambiguation      — the entity key identifies the spine to aggregate on
+# This is the "entity graph" / "semantic graph" concept. A lightweight YAML model is enough for a bounded domain;
+# MetricFlow/Cube embed the same idea as their join graph (entities + relationships → auto-joins).
+
+entities:
+  - name: asset
+    physical: ref('dim_assets')
+    primary_key: asset_id
+    attributes: [hostname, is_internet_facing, environment, owner_id, business_unit]
+    relationships:
+      - { name: has_finding, target: finding, cardinality: one_to_many,
+          join: "dim_assets.asset_id = fct_findings.asset_id" }
+      - { name: owned_by, target: owner, cardinality: many_to_one,
+          join: "dim_assets.owner_id = dim_owners.owner_id" }
+
+  - name: finding
+    physical: ref('fct_findings')
+    primary_key: finding_id
+    attributes: [severity, status, detected_at, cve_id, is_exploitable]
+    relationships:
+      - { name: on_asset, target: asset, cardinality: many_to_one,
+          join: "fct_findings.asset_id = dim_assets.asset_id" }
+      - { name: tracked_by, target: ticket, cardinality: one_to_one,   # ticket_id IS NULL ⇒ unassigned
+          join: "fct_findings.ticket_id = dim_tickets.ticket_id" }
+
+  - name: owner
+    physical: ref('dim_owners')
+    primary_key: owner_id
+    attributes: [team, email]
+
+  - name: ticket
+    physical: ref('dim_tickets')
+    primary_key: ticket_id
+    attributes: [state, assignee, sla_due_at]
+
+# WORKED NL→SQL via the graph:
+#   Q: "which critical findings on internet-facing assets are unassigned?"
+#   resolve nouns → finding(severity='critical'), asset(is_internet_facing), "unassigned" = no tracked_by edge
+#   traverse finding —on_asset→ asset (1 hop); emit joins from the edge `join:` clauses:
+#
+#   SELECT f.finding_id, a.hostname
+#   FROM fct_findings f
+#   JOIN dim_assets a ON a.asset_id = f.asset_id
+#   WHERE a.is_internet_facing AND f.severity = 'critical' AND f.ticket_id IS NULL;
+#
+# Guardrails: cap traversal depth (e.g. 2 hops / 3 tables), block fan-out (foreign↔foreign joins),
+# require each path to terminate at a primary/unique entity.

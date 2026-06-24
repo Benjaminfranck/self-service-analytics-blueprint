@@ -1,0 +1,59 @@
+# ① CANONICAL MARTS — metadata as a first-class product: descriptions, grain, tests,
+# ownership, tiering, certification, contract enforcement. This is what collapses
+# "40 plausible candidates" → "1 governed answer" BEFORE the agent ever searches.
+version: 2
+models:
+  - name: fct_findings
+    description: >
+      Canonical findings fact. GRAIN: one row per finding_id (a deduped vulnerability on an asset).
+      Severity & status are NORMALIZED (see knowledge/reference/findings.md). Standard hygiene
+      filter: exclude is_suppressed = true (baked in here). This is THE findings source —
+      deprecate near-duplicates.
+    config:
+      contract: { enforced: true }                      # build fails if columns drift from declared types
+      meta: { owner: "security-analytics@<org>", tier: gold, certified: true, canonical: true, domain: security }
+      tags: ["certified", "security"]
+    columns:
+      - name: finding_id
+        data_type: string
+        constraints: [{ type: not_null }, { type: primary_key }]
+        data_tests: [unique, not_null]
+      - name: asset_id
+        data_type: string
+        data_tests: [not_null, { relationships: { to: ref('dim_assets'), field: asset_id } }]
+      - name: severity
+        data_type: string
+        description: "Normalized severity."
+        data_tests: [{ accepted_values: { values: ['critical','high','medium','low'] } }]
+      - name: status
+        data_type: string
+        data_tests: [{ accepted_values: { values: ['open','mitigated','closed'] } }]
+      - { name: detected_at, data_type: timestamp, data_tests: [not_null] }
+      - { name: remediated_at, data_type: timestamp }
+      - { name: ticket_id, data_type: string }          # null ⇒ unassigned
+      - { name: is_internet_facing, data_type: boolean }
+      - { name: is_exploitable, data_type: boolean, description: "KEV/EPSS-derived." }
+      - { name: remediated_within_sla, data_type: boolean }
+
+  - name: dim_assets
+    description: "Canonical asset dimension (golden record). GRAIN: one row per asset_id."
+    config:
+      contract: { enforced: true }
+      meta: { owner: "security-analytics@<org>", tier: gold, certified: true, canonical: true, domain: security }
+    columns:
+      - name: asset_id
+        data_type: string
+        constraints: [{ type: not_null }, { type: primary_key }]
+        data_tests: [unique, not_null]
+      - { name: hostname, data_type: string }
+      - { name: is_internet_facing, data_type: boolean }
+      - { name: environment, data_type: string }
+      - { name: owner_id, data_type: string }
+      - { name: business_unit, data_type: string }
+
+# exposures: declare downstream dashboards so CI knows what a model change can break.
+exposures:
+  - name: soc_findings_dashboard
+    type: dashboard
+    depends_on: [ref('fct_findings'), ref('dim_assets')]
+    owner: { name: "SOC Analytics", email: "security-analytics@<org>" }

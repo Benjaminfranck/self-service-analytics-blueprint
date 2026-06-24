@@ -1,0 +1,53 @@
+# ④ ENFORCEMENT — the teeth that keep the system from decaying (staleness defense).
+# Colocation only works if CI requires docs/skills to move WITH the models.
+name: analytics-governance-ci
+on: pull_request
+
+jobs:
+  paired-docs:
+    # If a reporting model changed but its reference/skill doc didn't, FAIL the PR.
+    # (Anthropic: ~90% of data-model PRs now include a skill change in the same diff because of this.)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: marts
+        uses: tj-actions/changed-files@v47.0.6   # pin to a SHA in production
+        with: { files: models/marts/**/*.sql }
+      - id: docs
+        uses: tj-actions/changed-files@v47.0.6
+        with:
+          files: |
+            knowledge/reference/**
+            .claude/skills/**
+      - name: Require a paired reference/skill update
+        if: steps.marts.outputs.any_changed == 'true' && steps.docs.outputs.any_changed != 'true'
+        run: |
+          echo "::error::Mart(s) changed without updating knowledge/reference/** or .claude/skills/**:"
+          echo "${{ steps.marts.outputs.all_changed_files }}"
+          exit 1
+
+  dbt-build-and-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install dbt-core dbt-<adapter>
+      - run: dbt parse                      # builds manifest.json (lineage) + checks refs
+      - run: dbt build --select state:modified+ --defer --state ./prod-artifacts   # Slim CI: test only modified nodes + downstream
+
+  eval-gate:
+    # Re-run the affected domain's evals; block merge below the per-domain gate (~90%).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pyyaml
+      - run: python evals/run_evals.py evals/gold_questions.yml   # exits non-zero below the gate
+
+  publish-on-merge:
+    # On merge to main: re-sync skills + sources of truth to MCP / marketplace / blobs.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo "TODO publish: .claude/skills + semantic/ + knowledge/ to MCP, plugin marketplace, cloud blobs"

@@ -1,0 +1,25 @@
+{
+  "_comment": "Distribution layer. The same skills + sources of truth are served as MCP resources so Slack, IDE, dashboards, and standalone agents give the SAME answer. On merge, CI re-publishes these (also to the plugin marketplace + cloud-storage blobs).",
+  "mcpServers": {
+    "semantic-layer": {
+      "command": "<your-semantic-layer-mcp-server>",
+      "args": ["--manifest", "semantic/findings.yml", "--graph", "semantic/entities_graph.yml"],
+      "env": { "WAREHOUSE_DSN": "${WAREHOUSE_DSN}", "READ_ONLY": "true" },
+      "_tools": {
+        "list_metrics": "return governed metric catalog (name, description, dimensions, owner, tier)",
+        "compile_metric": "compile {metric, dimensions, filters, grain} -> SQL and run read-only; returns rows + the SQL + freshness",
+        "resolve_entity": "map a noun -> entity + join paths from entities_graph.yml",
+        "get_reference_doc": "fetch knowledge/reference/<domain>.md",
+        "source_freshness": "max date + freshness status per source (for the provenance footer)"
+      }
+    },
+    "catalog": {
+      "command": "<your-catalog-mcp-server>",
+      "args": ["--lineage", "target/manifest.json"],
+      "_tools": {
+        "rank_tables": "rank candidate tables by downstream refs + centrality + certified/canonical",
+        "lineage": "parents/children + column-level lineage for a model"
+      }
+    }
+  }
+}

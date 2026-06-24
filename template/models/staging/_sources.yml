@@ -1,0 +1,22 @@
+# ① Raw sources + FRESHNESS (the agent reads freshness to populate the provenance footer).
+# In a real deployment these are the normalized/deduped outputs of the ingestion pipeline
+# (normalization + dedup/entity-resolution run in a governed upstream transform).
+version: 2
+sources:
+  - name: fabric                       # the analytics data lake / warehouse
+    database: "{{ env_var('WAREHOUSE_DB', 'fabric') }}"
+    tables:
+      - name: findings_normalized      # post-normalization, post-dedup findings (one row per source observation)
+        description: "Findings after schema-normalization + dedup across scanners (multiple vendors)."
+        config:
+          loaded_at_field: ingested_at
+          freshness: { warn_after: { count: 2, period: hour }, error_after: { count: 6, period: hour } }
+      - name: assets_golden            # golden record: one row per resolved asset
+        description: "Deduplicated golden-record assets (entity resolution output)."
+        config:
+          loaded_at_field: ingested_at
+          freshness: { warn_after: { count: 6, period: hour }, error_after: { count: 24, period: hour } }
+      - name: tickets
+        description: "Remediation tickets (from a ticketing system)."
+      - name: owners
+        description: "Asset/team ownership (from CMDB + IdP)."

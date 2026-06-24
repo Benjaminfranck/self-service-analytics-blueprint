@@ -1,0 +1,45 @@
+# ④ OFFLINE EVALS — Q/A pairs per domain. A domain can't "go live" until its slice clears ~90%.
+# ANCHOR ground truth so evals don't go stale: grade the agent's QUERY/metric-resolution, not the
+# live number (a number changes the moment the data moves). Pin to a snapshot where you must assert a value.
+# Mix: (a) dashboard-based (common stakeholder questions) + (b) long-tail (Claude-generated from docs).
+domain: security_findings
+gate_threshold: 0.90        # per-domain launch gate
+evals:
+  - id: ev-001
+    type: dashboard
+    question: "How many open critical findings are there?"
+    grade_on: metric_resolution            # PASS if it resolves to the right metric, not a literal count
+    expect:
+      metrics: [open_critical_findings]
+      hits_semantic_layer: true            # target: every correct answer also hits the semantic layer
+  - id: ev-002
+    type: dashboard
+    question: "Open critical findings on internet-facing assets by team, last 30 days"
+    grade_on: metric_resolution
+    expect:
+      metrics: [open_critical_findings]
+      dimensions: [owner.team]
+      filters_include: ["asset.is_internet_facing", "time.last_30_days"]
+      hits_semantic_layer: true
+  - id: ev-003
+    type: dashboard
+    question: "What is our MTTR for criticals this quarter?"
+    grade_on: query_snapshot               # assert value against a pinned snapshot fact table
+    snapshot_date: "2026-06-01"
+    expect: { metrics: [mttr_hours], filters_include: ["finding.severity='critical'"] }
+  - id: ev-004
+    type: long_tail
+    question: "How many unassigned critical findings do we have?"
+    grade_on: metric_resolution
+    expect: { metrics: [open_critical_findings], filters_include: ["finding.ticket_id IS NULL"], hits_semantic_layer: true }
+  - id: ev-005
+    type: long_tail
+    question: "Which business units are worst on critical SLA compliance?"
+    grade_on: metric_resolution
+    expect: { metrics: [critical_remediation_sla_rate], dimensions: [asset.business_unit], hits_semantic_layer: true }
+  - id: ev-006
+    type: adversarial            # ambiguity → expect a clarification, not a guess
+    question: "How many active assets are at risk?"
+    grade_on: behavior
+    expect: { asks_clarification: true, reason: "'active' and 'at risk' are ambiguous" }
+# Harvest new evals whenever a stakeholder corrects the agent in a thread.

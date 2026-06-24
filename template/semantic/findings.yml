@@ -1,0 +1,63 @@
+# ② SEMANTIC LAYER — governed metric & dimension definitions (MetricFlow-style).
+# The agent is REQUIRED (by skill instruction) to resolve questions here FIRST.
+# Why: if it picks the right metric + dimensions, the query is correct by construction;
+# it fails CLOSED (error) instead of returning a plausible-but-wrong number.
+# RULE: humans own these definitions. Do not auto-generate from raw tables.
+
+semantic_models:
+  - name: findings
+    description: "One row per security finding (grain: finding_id). Canonical fact for vuln analytics."
+    model: ref('fct_findings')
+    defaults:
+      agg_time_dimension: detected_at
+    entities:
+      - { name: finding, type: primary, expr: finding_id }
+      - { name: asset,   type: foreign, expr: asset_id }     # join key → dim_assets
+      - { name: ticket,  type: foreign, expr: ticket_id }    # null = unassigned
+    dimensions:
+      - { name: detected_at, type: time, type_params: { time_granularity: day } }
+      - { name: severity,    type: categorical }             # NORMALIZED: critical|high|medium|low (see reference/findings.md)
+      - { name: status,      type: categorical }             # NORMALIZED: open|mitigated|closed
+      - { name: is_exploitable, type: categorical }          # KEV/EPSS-derived flag
+    measures:
+      - { name: finding_count, agg: count, expr: finding_id, description: "Count of findings (additive)." }
+      - name: assets_affected
+        agg: count_distinct           # NON-ADDITIVE: distinct(A∪B) ≠ distinct(A)+distinct(B).
+        expr: asset_id                # In rollups, use an additive HLL sketch (count_distinct_approx) instead.
+        description: "Distinct assets with a finding. Non-additive — do not sum across slices."
+      - { name: ttr_hours, agg: average, expr: "datediff('hour', detected_at, remediated_at)", description: "Time-to-remediate (non-additive average)." }
+
+metrics:
+  # --- the canonical metric an NL question maps to ---
+  - name: open_critical_findings
+    label: "Open Critical Findings"
+    description: "Open, critical-severity findings. THE definition — every surface returns this same number."
+    type: simple
+    type_params: { measure: { name: finding_count } }
+    filter: |
+      {{ Dimension('finding__severity') }} = 'critical'
+      AND {{ Dimension('finding__status') }} = 'open'
+    meta: { owner: "security-analytics@<org>", certified: true, tier: gold }
+
+  - name: mttr_hours
+    label: "MTTR (hours)"
+    description: "Mean time-to-remediate. Non-additive — computed from base rows."
+    type: simple
+    type_params: { measure: { name: ttr_hours } }
+    meta: { owner: "security-analytics@<org>", certified: true, tier: gold }
+
+  - name: critical_remediation_sla_rate
+    label: "Critical SLA Compliance %"
+    description: "Share of critical findings remediated within SLA. RATIO — numerator/denominator each aggregated then divided (nullif guard)."
+    type: ratio
+    type_params:
+      numerator: { name: finding_count, filter: "{{ Dimension('finding__status') }} = 'closed' AND remediated_within_sla" }
+      denominator: { name: finding_count, filter: "{{ Dimension('finding__severity') }} = 'critical'" }
+    meta: { owner: "security-analytics@<org>", certified: true, tier: gold }
+
+# ADDITIVITY CHEAT-SHEET (correctness, not pedantry):
+#   additive      → sum/count: roll up across ALL dims incl. time (finding_count)
+#   semi-additive → balances/coverage snapshots: snapshot per period, DON'T sum over time
+#                   (MetricFlow: measures.non_additive_dimension: {name: ..., window_choice: max})
+#   non-additive  → distinct counts, averages, ratios: recompute from base rows
+#                   (distinct → HLL sketch for rollups; fan-out → symmetric aggregates)
