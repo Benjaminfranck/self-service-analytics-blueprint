@@ -5,6 +5,8 @@ A small, **runnable** implementation of the MCP layer described in [`../README.m
 a governed metric request becomes read-only SQL, runs against the warehouse, and comes back with rows +
 the generated SQL + freshness — **the agent never writes SQL and never sees credentials.**
 
+![End-to-end demo: a governed request compiles to read-only SQL and returns rows + provenance, with tenant isolation, read-only enforcement, and fails-closed behavior](./demo.svg)
+
 > **Scope:** `engine.py` is a *reference compiler* for the example security metrics in
 > [`../../semantic/findings.yml`](../../semantic/findings.yml). For production, swap in the dbt Semantic
 > Layer / MetricFlow or Cube — the governance properties (text-to-metric, read-only, tenant-injected,
@@ -41,6 +43,17 @@ bash scripts/local_pg.sh stop      # when done
 ## As an MCP server
 Point your MCP client at `python server/server.py` (see [`../mcp.config.json`](../mcp.config.json)). The
 server reads `WAREHOUSE_DSN`, `DEMO_TENANT`, and `STATEMENT_TIMEOUT_MS` from the environment.
+
+## Tests
+
+The compiler's governance guarantees are unit-tested (no database needed):
+
+```bash
+pip install pytest && pytest template/mcp/server/tests -q   # 9 passed
+```
+
+They assert the tenant predicate is always injected, only allowlisted metrics/dimensions/filters
+compile (a raw-SQL/injection attempt is rejected), and unknown objects fail closed. CI runs them on every push.
 
 ## Security properties (enforced, not just documented)
 - **Read-only:** connect as a least-privilege role *and* `SET default_transaction_read_only = on`; a

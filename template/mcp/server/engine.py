@@ -13,8 +13,8 @@ import os
 from datetime import date, datetime
 from decimal import Decimal
 
-import psycopg
-from psycopg.rows import dict_row
+# psycopg is imported lazily inside _connect() so the pure compiler (build_sql / list_metrics)
+# and the test suite import with zero database dependencies.
 
 # --- governed registry (mirrors semantic/findings.yml + entities_graph.yml) ------------------
 BASE = "fct_findings f"
@@ -173,6 +173,8 @@ def _jsonable(v):
 
 
 def _connect():
+    import psycopg
+    from psycopg.rows import dict_row
     dsn = os.environ.get("WAREHOUSE_DSN")
     if not dsn:
         raise MetricError("no_dsn", "WAREHOUSE_DSN not set. Copy .env.example and export it.")

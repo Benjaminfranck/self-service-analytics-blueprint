@@ -1,5 +1,7 @@
 # Self-Service Data Analytics — A Governance-First Blueprint
 
+[![ci](https://github.com/Benjaminfranck/self-service-analytics-blueprint/actions/workflows/ci.yml/badge.svg)](https://github.com/Benjaminfranck/self-service-analytics-blueprint/actions/workflows/ci.yml) · [License: MIT](./LICENSE)
+
 > A reusable framework **and** a copyable repo scaffold for **trustworthy, AI-driven natural-language
 > analytics** on any data warehouse — built governance-first, so a plain-language question returns an
 > answer you can *act on*, not a confident-but-wrong number.
@@ -70,6 +72,20 @@ and a few dozen evals capture most of the value before anything fancy.
 4. Define the domain's **metrics** (`template/semantic/`) — humans own the definitions.
 5. Wire **colocation CI** + the **per-domain eval gate**.
 6. Add the **workflow + adversarial** skills, then the business-context KB, then expose over **MCP**.
+
+## See it run — the MCP layer, live on Postgres
+
+The blueprint isn't just a scaffold: [`template/mcp/server/`](./template/mcp/server) is a **runnable**
+reference MCP server. A governed metric request compiles to read-only SQL, runs on Postgres, and returns
+rows + the generated SQL + a provenance footer — with **tenant isolation**, **read-only enforcement**, and
+**fails-closed** behavior, all demonstrable in one command.
+
+![End-to-end demo of the reference MCP server](./template/mcp/server/demo.svg)
+
+```bash
+cd template/mcp/server && docker compose up -d && pip install -r requirements.txt
+WAREHOUSE_DSN=postgresql://postgres:postgres@localhost:5432/analytics DEMO_TENANT=acme python demo.py
+```
 
 ## Tech stack (reference — all swappable)
 

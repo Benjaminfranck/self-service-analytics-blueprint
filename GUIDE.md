@@ -79,6 +79,8 @@ A user asks, in plain language: *"How many open critical findings are on interne
 
 So the MCP serves **(a) metadata** that grounds the agent, **(b) data** via `compile_metric` (the agent chooses a metric; the *server* generates and runs the SQL), and **(c) the generated SQL back as a provenance artifact** (show-your-work), never as an input. **That boundary is where governance lives** — the agent selects from governed metrics/entities, so it can only reference legitimate objects. *(Exception: when no metric covers a question, a constrained raw-SQL fallback is allowed — restricted to entity-graph joins, read-only, forced through the adversarial reviewer, and logged so you add the missing metric. It's the last resort, not the path.)* Swap MCP for another transport and the framework still stands — the governance is the point.
 
+> **Runnable:** a reference server in `template/mcp/server/` implements this against **Postgres** — a governed request compiles to read-only SQL and returns rows + the generated SQL + freshness, with **tenant isolation** and **fails-closed** behavior you can run locally (`docker compose up` → `python demo.py`).
+
 ---
 
 ## 4. The components (what / why / how — each maps to a `template/` file)
@@ -127,12 +129,13 @@ template/
   models/{staging,marts}/         (1) canonical datasets + contracts/owner/meta
   semantic/findings.yml           (2) semantic layer — metrics + additivity
   semantic/entities_graph.yml     (6) entity/relationship graph + worked NL->SQL
-  knowledge/reference/findings.md (8) LLM-facing reference doc
+  knowledge/reference/*.md         (8) LLM-facing reference docs (findings · assets · risk)
   knowledge/business_context/     (5) glossary - initiatives/ - decisions/ - org.md
   knowledge/query_corpus/         (4) corpus.jsonl + README (curate, don't raw-retrieve)
   knowledge/lineage/README.md     (3) how lineage is produced + table ranking
   .claude/skills/                 (7) analytics-router - analytics-workflow - sql-reviewer
   mcp/                            serve semantic layer/catalog as MCP resources (see §3b)
+  mcp/server/                     ⭐ RUNNABLE reference server (Postgres): engine + MCP + demo + tests
   evals/                          gold_questions.yml - run_evals.py (gate+telemetry) - README
   governance/                     metric_governance.md - provenance_footer.md - tenant_isolation.md
   docs/adr/                       0001-text-to-metric-not-text-to-sql.md

@@ -1,0 +1,18 @@
+# Repository CI — runs the reference MCP server's compiler unit tests (no database needed).
+# NOTE: template/.github/workflows/ci.yml is an *example* shipped as blueprint content; THIS file
+# (at the repo root) is the repository's own pipeline that produces the README badge.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - run: pytest template/mcp/server/tests -q
