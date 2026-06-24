@@ -17,3 +17,8 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# local postgres cluster (reference server demo)
+.pgdata/
+*.pgdata/
+pgdata/

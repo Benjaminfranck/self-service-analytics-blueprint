@@ -2,9 +2,9 @@
   "_comment": "Distribution layer. The same skills + sources of truth are served as MCP resources so Slack, IDE, dashboards, and standalone agents give the SAME answer. On merge, CI re-publishes these (also to the plugin marketplace + cloud-storage blobs).",
   "mcpServers": {
     "semantic-layer": {
-      "command": "<your-semantic-layer-mcp-server>",
-      "args": ["--manifest", "semantic/findings.yml", "--graph", "semantic/entities_graph.yml"],
-      "env": { "WAREHOUSE_DSN": "${WAREHOUSE_DSN}", "READ_ONLY": "true" },
+      "command": "python",
+      "args": ["server/server.py"],
+      "env": { "WAREHOUSE_DSN": "${WAREHOUSE_DSN}", "READ_ONLY": "true", "DEMO_TENANT": "${DEMO_TENANT}", "STATEMENT_TIMEOUT_MS": "5000" },
       "_tools": {
         "list_metrics": "return governed metric catalog (name, description, dimensions, owner, tier)",
         "compile_metric": "compile {metric, dimensions, filters, grain} -> SQL and run read-only; returns rows + the SQL + freshness",

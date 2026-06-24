@@ -57,7 +57,7 @@ and a few dozen evals capture most of the value before anything fancy.
 | `template/semantic/` | (2) semantic layer (metrics + additivity) + entity/relationship graph |
 | `template/knowledge/` | (2/5) reference docs, business context, query corpus, lineage |
 | `template/.claude/skills/` | (3) router · workflow · adversarial reviewer |
-| `template/mcp/` | distribution — serve the governed layer over MCP |
+| `template/mcp/` | distribution — serve the governed layer over MCP, **plus a runnable Postgres reference server** ([`server/`](./template/mcp/server)) |
 | `template/evals/` | (4) gold questions + harness (per-domain gate + telemetry) |
 | `template/governance/` | (4) metric governance · provenance footer · tenant isolation |
 | `template/.github/workflows/` | (4) CI: paired-doc gate + dbt build + eval gate |

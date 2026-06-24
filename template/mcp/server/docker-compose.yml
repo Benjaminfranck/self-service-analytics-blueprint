@@ -1,0 +1,21 @@
+# Portable one-command Postgres for the demo. The schema + seed auto-load on first start.
+#   docker compose up -d
+#   pip install -r requirements.txt
+#   WAREHOUSE_DSN=postgresql://postgres:postgres@localhost:5432/analytics DEMO_TENANT=acme python demo.py
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d analytics"]
+      interval: 3s
+      timeout: 3s
+      retries: 10

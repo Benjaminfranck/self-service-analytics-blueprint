@@ -16,3 +16,15 @@ and columns. Keep everything **read-only**; the agent never mutates.
 
 ## The boring (good) fix path
 Edit a markdown file → merge → auto-sync everywhere. That's the staleness defense — see the CI hook.
+
+## Runnable reference server
+A small, **runnable** implementation lives in [`server/`](./server) — wired to a real Postgres so you can
+watch a governed metric request compile to read-only SQL and return rows + the generated SQL + freshness
+(no MCP client needed). One command to a working demo:
+```bash
+cd server && docker compose up -d && pip install -r requirements.txt
+WAREHOUSE_DSN=postgresql://postgres:postgres@localhost:5432/analytics DEMO_TENANT=acme python demo.py
+```
+It demonstrates the governance properties for real: read-only, **tenant injected server-side** (the agent
+can't widen scope), allowlisted metrics/dimensions, and **fails-closed** on an unknown metric. See
+[`server/README.md`](./server/README.md).
